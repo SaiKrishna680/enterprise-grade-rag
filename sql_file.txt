@@ -1,0 +1,128 @@
+1. Replace ONLY the RLS policy section
+
+In your SQL, find this part:
+create policy "Users manage their own documents"
+    on documents for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+
+create policy "Users manage their own conversations"
+    on conversations for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+
+create policy "Users manage their own chunks"
+    on chunks for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+
+create policy "Users manage messages in their own conversations"
+    on messages for all
+    using (exists (
+        select 1 from conversations c
+        where c.id = messages.conversation_id and c.user_id = auth.uid()
+    ))
+    with check (exists (
+        select 1 from conversations c
+        where c.id = messages.conversation_id and c.user_id = auth.uid()
+    ));
+
+
+Replace that entire section with this:
+
+-- Remove old policies if they already exist.
+-- This does NOT delete any documents or user data.
+drop policy if exists "Users manage their own documents" on documents;
+drop policy if exists "Users manage their own conversations" on conversations;
+drop policy if exists "Users manage their own chunks" on chunks;
+drop policy if exists "Users manage messages in their own conversations" on messages;
+
+
+-- Recreate the policies.
+
+create policy "Users manage their own documents"
+    on documents for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+
+
+create policy "Users manage their own conversations"
+    on conversations for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+
+
+create policy "Users manage their own chunks"
+    on chunks for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+
+
+-- messages has no user_id column of its own.
+-- Ownership is enforced through the parent conversation.
+
+create policy "Users manage messages in their own conversations"
+    on messages for all
+    using (
+        exists (
+            select 1
+            from conversations c
+            where c.id = messages.conversation_id
+              and c.user_id = auth.uid()
+        )
+    )
+    with check (
+        exists (
+            select 1
+            from conversations c
+            where c.id = messages.conversation_id
+              and c.user_id = auth.uid()
+        )
+    );
+
+
+
+next step - 5 code
+-- 1. Add storage_path to existing documents table
+alter table documents
+add column if not exists storage_path text;
+
+-- 2. Create private Storage bucket
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', false)
+on conflict (id) do nothing;
+
+-- 3. Create Storage RLS policy only if it doesn't already exist
+drop policy if exists "Users manage their own files"
+on storage.objects;
+
+create policy "Users manage their own files"
+on storage.objects
+for all
+using (
+    bucket_id = 'documents'
+    and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+    bucket_id = 'documents'
+    and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+
+
+select column_name
+from information_schema.columns
+where table_name = 'documents'
+  and column_name = 'storage_path';
+
+
+select id, name, public
+from storage.buckets
+where id = 'documents';
+
+
+
+select policyname
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects';

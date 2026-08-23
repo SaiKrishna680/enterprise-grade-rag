@@ -1,0 +1,105 @@
+-- 1. Add storage_path to existing documents table
+alter table documents
+add column if not exists storage_path text;
+
+-- 2. Create private Storage bucket
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', false)
+on conflict (id) do nothing;
+
+-- 3. Create Storage RLS policy only if it doesn't already exist
+drop policy if exists "Users manage their own files"
+on storage.objects;
+
+create policy "Users manage their own files"
+on storage.objects
+for all
+using (
+    bucket_id = 'documents'
+    and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+    bucket_id = 'documents'
+    and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+
+
+select column_name
+from information_schema.columns
+where table_name = 'documents'
+  and column_name = 'storage_path';
+
+
+select id, name, public
+from storage.buckets
+where id = 'documents';
+
+
+
+select policyname
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects';
+
+
+
+select
+    filename,
+    storage_path,
+    status,
+    chunk_count,
+    image_count
+from documents
+order by created_at desc;
+
+
+
+select
+    d.filename,
+    c.content_type,
+    c.image_path
+from documents d
+join chunks c on c.document_id = d.id
+where d.storage_path is null
+  and c.content_type = 'image'
+limit 20;
+
+
+delete from documents
+where filename in (
+    'Logistic Regression .pdf',
+    '2025_AnnualReport.pdf',
+    'Linear Regression.pdf'
+);
+
+
+select
+    filename,
+    storage_path,
+    status,
+    chunk_count,
+    image_count
+from documents
+order by created_at desc;
+
+
+select
+    filename,
+    storage_path,
+    status,
+    chunk_count,
+    image_count
+from documents
+order by created_at desc;
+
+
+select
+    d.filename,
+    c.page_number,
+    c.image_path
+from documents d
+join chunks c on c.document_id = d.id
+where c.content_type = 'image'
+order by d.filename, c.page_number
+limit 20;
