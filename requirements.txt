@@ -1,19 +1,26 @@
-# --- Phase 2: parsing ---
+# --- PDF parsing ---
 pymupdf
 pdfplumber
 
-# --- Phase 3 & 4: embeddings, vector store, generation ---
-sentence-transformers
-chromadb
-google-genai        # NOTE: this is "google-genai", NOT the older "google-generativeai"
-torch                # backs sentence-transformers; CPU-only install command in README
+# --- Embeddings ---
+sentence-transformers==3.4.1
+transformers>=4.41.0,<5.0.0
+torch
 
-# --- Phase 5: UI & evaluation (used later) ---
+# --- Supabase: Auth + Postgres/pgvector + Storage ---
+supabase
+
+# --- Gemini generation ---
+google-genai
+
+# --- Image processing ---
+Pillow
+
+# --- Environment variables ---
+python-dotenv
+
+# --- Web application ---
 streamlit
-ragas
 
-# --- optional / stretch goal, not required for the core pipeline ---
-# open-clip-torch    # true CLIP image embeddings, for cross-modal retrieval bonus points
-# llama-index        # framework wrapper -- see README for why the core pipeline skips it
-# llama-index-vector-stores-chroma
-# llama-index-embeddings-huggingface
+# --- Evaluation ---
+ragas
