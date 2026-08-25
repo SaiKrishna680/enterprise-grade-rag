@@ -1,115 +1,136 @@
-# Multimodal RAG — Financial Reports
+# DocuMind AI — Secure Multimodal RAG Platform
 
-Enterprise-grade multimodal RAG over 10-K / annual report PDFs. Free and
-local-first: only the final answer-generation step calls a (free-tier)
-cloud API.
+> A production-oriented multimodal Retrieval-Augmented Generation (RAG) platform for querying enterprise documents containing text, tables, charts, and images.
 
-## Status: Phase 2 (Data Ingestion) ✅
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-App-red.svg)](https://streamlit.io/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20%7C%20Auth%20%7C%20Storage-green.svg)](https://supabase.com/)
+[![pgvector](https://img.shields.io/badge/Vector%20Search-pgvector-purple.svg)](https://github.com/pgvector/pgvector)
+[![Gemini](https://img.shields.io/badge/LLM-Gemini-orange.svg)](https://ai.google.dev/)
+[![Sentence Transformers](https://img.shields.io/badge/Embeddings-Sentence%20Transformers-yellow.svg)](https://www.sbert.net/)
 
-## Setup
+---
 
-```bash
-python3 -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+## 🚀 Live Application
 
-# Optional: smaller, faster CPU-only torch install (skip if you have a GPU)
-pip install torch --index-url https://download.pytorch.org/whl/cpu --force-reinstall
-```
+**Deployed Application:**  
+https://enterprise-grade-rag.streamlit.app/
 
-Get a free Gemini API key at aistudio.google.com (no credit card needed)
-and set it as an environment variable — you'll need this in Phase 4:
+> The application requires user authentication. Each user's documents are isolated using Supabase Authentication and PostgreSQL Row Level Security (RLS).
 
-```bash
-export GOOGLE_API_KEY="your-key-here"     # Windows: setx GOOGLE_API_KEY "your-key-here"
-```
+---
 
-## Getting a dataset (financial reports)
+# 📌 Overview
 
-Two good free sources:
+DocuMind AI is a secure, multimodal RAG platform designed to answer questions from uploaded enterprise documents.
 
-1. **Company investor-relations PDFs (recommended)** — Apple, Microsoft,
-   NVIDIA, etc. post polished, professionally designed Annual
-   Report PDFs directly on their investor relations sites. These are
-   genuinely rich in charts, infographics, and tables — exactly what
-   shows off multimodal retrieval. Search "[company] investor relations
-   annual report PDF" and download 2-3.
-2. **SEC EDGAR (sec.gov/edgar)** — the legal source of truth for 10-Ks.
-   Filings are published as HTML, not PDF, so off-the-shelf converters
-   often mangle them. The reliable free option: open the filing's
-   `.htm` document directly in your browser and use Print → Save as PDF.
-   Denser and less visual than IR-page PDFs, but authoritative.
+Unlike a basic PDF chatbot that only processes text, DocuMind extracts and retrieves:
 
-Aim for **2-3 companies, ~150-300 total pages** — enough to be
-genuinely multimodal without turning ingestion into an overnight job on
-a laptop CPU.
+- 📄 Text
+- 📊 Tables
+- 📈 Charts
+- 🖼️ Images
+- 📝 Image captions
 
-Drop your PDFs into `data/raw_pdfs/`.
+The system combines semantic vector retrieval with multimodal generation to provide grounded answers based only on retrieved document context.
 
-## Run ingestion
+The platform also supports:
 
-```bash
-python3 src/ingest.py
-```
+- Multi-user authentication
+- User-level document isolation
+- Persistent document storage
+- Persistent vector storage
+- Multimodal retrieval
+- Source/page attribution
+- Cloud deployment
+- Storage persistence across redeployments
 
-This produces:
-- `data/processed/text_chunks.jsonl` — per-page text + tables (tables
-  are serialized to markdown, not treated as images — they retrieve far
-  better as structured text)
-- `data/processed/image_assets.jsonl` — metadata for every extracted image
-- `data/processed/images/` — embedded raster images (photos, logos, some charts)
-- `data/processed/page_renders/` — full-page screenshots of every page
+---
 
-**Why both `images/` and `page_renders/`?** Charts built in Excel,
-PowerPoint, or matplotlib and dropped into a PDF are very often *vector*
-graphics — lines and rectangles drawn directly on the page, not embedded
-picture objects. Vector charts are invisible to raster image extraction;
-`page.get_images()` will never find them. Rendering every page as a
-bitmap is the only reliable way to guarantee a chart gets captured
-regardless of how the original document was built. (I verified this
-against a synthetic test PDF with a pure vector-drawn chart before
-handing this off — raster extraction found zero images on that page,
-the page render caught it perfectly.)
+# 🎯 Problem Statement
 
-## Status: Phase 4 (Retrieval & Generation) ✅
+Traditional document QA systems often have several limitations:
 
-## Run Phase 3 (embedding & indexing)
+1. They only process text.
+2. Important information inside charts and images can be ignored.
+3. Local vector databases may not survive cloud redeployments.
+4. Local image files can disappear after deployment.
+5. Application-level filtering alone is not sufficient for strong multi-user isolation.
+6. Answers may be difficult to trace back to their original source.
 
-```bash
-python3 src/embed_and_index.py
-```
+DocuMind addresses these problems through a cloud-persistent, multimodal RAG architecture.
 
-Captions come from Gemini now, not BLIP — BLIP was trained on natural
-photos and produced near-useless captions on financial charts ("a table
-with numbers"). If you ran the old BLIP version before, **delete
-`data/processed/image_captions.jsonl`** first, or the cache will replay
-the stale BLIP captions instead of calling Gemini. Expect ~10-15 minutes
-for ~160 images — this is deliberate request pacing to respect the free
-tier's rate limit, not a hang.
+---
 
-## Run Phase 4 (ask questions)
+# 🏗️ System Architecture
 
-```bash
-python3 src/rag_pipeline.py
-```
-
-This drops you into a simple REPL — type a question, get an answer plus
-the list of sources (doc + page number) it was grounded in. Under the
-hood: your question is embedded, ChromaDB is queried twice (once
-filtered to text/tables, once filtered to images, so images can't get
-crowded out), and the retrieved text plus the **original image files**
-(not just their captions) are sent to Gemini to synthesize an answer.
-
-Try a mix of questions to stress-test both retrieval paths, e.g.:
-- "What was total revenue growth?" (should pull text/table hits)
-- "What does the segment breakdown chart show?" (should pull an image hit)
-
-If a question that should clearly hit a chart never returns an `[image]`
-source, check `data/processed/image_captions.jsonl` for that page's
-caption quality before assuming the retrieval logic is broken.
-
-## Next: Phase 5 — Evaluation & UI
-
-Coming next: a Streamlit chat interface, and Ragas metrics (faithfulness,
-retrieval precision) to show hallucination/accuracy numbers in your report.
-
+```text
+                         ┌──────────────────────┐
+                         │        USER          │
+                         │ Login / Upload / Ask │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │      STREAMLIT       │
+                         │       app.py         │
+                         └───────┬───────┬──────┘
+                                 │       │
+                       Upload PDF│       │Question
+                                 │       │
+                ┌────────────────▼─┐     │
+                │    INGESTION     │     │
+                │                  │     │
+                │ PDF Parsing      │     │
+                │ Text/Table       │     │
+                │ Image Extraction │     │
+                │ Image Captioning │     │
+                └────────┬─────────┘     │
+                         │               │
+              ┌──────────┼──────────┐    │
+              │          │          │    │
+              ▼          ▼          ▼    │
+           Text/      Captions    Images │
+           Tables                  │      │
+              │          │        │      │
+              └─────┬────┘        │      │
+                    ▼             ▼      │
+              BGE Embeddings   Supabase  │
+                    │           Storage   │
+                    ▼                    │
+           ┌─────────────────┐           │
+           │ PostgreSQL +    │           │
+           │ pgvector        │           │
+           │                 │           │
+           │ chunks          │           │
+           │ embeddings      │           │
+           │ metadata        │           │
+           └────────┬────────┘           │
+                    │                    │
+                    │          ┌─────────▼─────────┐
+                    │          │  QUERY EMBEDDING  │
+                    │          │    BGE-small      │
+                    │          └─────────┬─────────┘
+                    │                    │
+                    │          ┌─────────▼─────────┐
+                    │          │  match_chunks RPC │
+                    │          │    pgvector       │
+                    │          └──────┬──────┬─────┘
+                    │                 │      │
+                    │          Text/Table   Images
+                    │                 │      │
+                    │                 │   Storage
+                    │                 │      │
+                    │          ┌──────▼──────▼─────┐
+                    │          │    RETRIEVED      │
+                    │          │ TEXT + RAW IMAGE  │
+                    │          └─────────┬─────────┘
+                    │                    │
+                    │          ┌─────────▼─────────┐
+                    │          │      GEMINI       │
+                    │          │ Multimodal LLM    │
+                    │          └─────────┬─────────┘
+                    │                    │
+                    └────────────────────▼
+                             GROUNDED ANSWER
+                              + SOURCES
