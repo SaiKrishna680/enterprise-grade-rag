@@ -14,7 +14,7 @@
 ## 🚀 Live Application
 
 **Deployed Application:**  
-https://enterprise-grade-rag.streamlit.app/
+https://enterprise-grade-rag-6665ttqyjrusnmvjhrmv5s.streamlit.app/
 
 > The application requires user authentication. Each user's documents are isolated using Supabase Authentication and PostgreSQL Row Level Security (RLS).
 
