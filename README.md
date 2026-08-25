@@ -1,136 +1,99 @@
 # DocuMind AI — Secure Multimodal RAG Platform
 
-> A production-oriented multimodal Retrieval-Augmented Generation (RAG) platform for querying enterprise documents containing text, tables, charts, and images.
+A secure, cloud-deployed **multimodal Retrieval-Augmented Generation (RAG)** platform for querying enterprise PDF documents containing **text, tables, charts, and images**.
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-red.svg)](https://streamlit.io/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20%7C%20Auth%20%7C%20Storage-green.svg)](https://supabase.com/)
-[![pgvector](https://img.shields.io/badge/Vector%20Search-pgvector-purple.svg)](https://github.com/pgvector/pgvector)
-[![Gemini](https://img.shields.io/badge/LLM-Gemini-orange.svg)](https://ai.google.dev/)
-[![Sentence Transformers](https://img.shields.io/badge/Embeddings-Sentence%20Transformers-yellow.svg)](https://www.sbert.net/)
+DocuMind AI combines semantic vector search, multimodal LLM generation, persistent cloud storage, authentication, and database-level row security to provide grounded document question answering for multiple users.
 
 ---
 
-## 🚀 Live Application
+## 🚀 Live Demo
 
-**Deployed Application:**  
+**Live Application:**  
 https://enterprise-grade-rag.streamlit.app/
 
-> The application requires user authentication. Each user's documents are isolated using Supabase Authentication and PostgreSQL Row Level Security (RLS).
+**GitHub Repository:**  
+https://github.com/SaiKrishna680/enterprise-grade-rag
 
 ---
 
-# 📌 Overview
+## 📌 Overview
 
-DocuMind AI is a secure, multimodal RAG platform designed to answer questions from uploaded enterprise documents.
+Traditional PDF question-answering systems often focus only on extracted text. This can cause important information contained in tables, charts, and images to be ignored.
 
-Unlike a basic PDF chatbot that only processes text, DocuMind extracts and retrieves:
+DocuMind AI addresses this by building a multimodal RAG pipeline that:
 
-- 📄 Text
-- 📊 Tables
-- 📈 Charts
-- 🖼️ Images
-- 📝 Image captions
-
-The system combines semantic vector retrieval with multimodal generation to provide grounded answers based only on retrieved document context.
-
-The platform also supports:
-
-- Multi-user authentication
-- User-level document isolation
-- Persistent document storage
-- Persistent vector storage
-- Multimodal retrieval
-- Source/page attribution
-- Cloud deployment
-- Storage persistence across redeployments
+- Extracts text and tables from PDFs
+- Extracts images from documents
+- Generates captions for extracted images
+- Creates semantic embeddings using BGE-small
+- Stores embeddings in PostgreSQL using pgvector
+- Stores original PDFs and images in Supabase Storage
+- Retrieves text, tables, and images separately
+- Sends retrieved text and actual image pixels to Gemini
+- Generates answers grounded only in retrieved document context
+- Provides document and page-level source attribution
+- Supports multiple users with isolated document access
+- Persists data across application redeployments
 
 ---
 
-# 🎯 Problem Statement
-
-Traditional document QA systems often have several limitations:
-
-1. They only process text.
-2. Important information inside charts and images can be ignored.
-3. Local vector databases may not survive cloud redeployments.
-4. Local image files can disappear after deployment.
-5. Application-level filtering alone is not sufficient for strong multi-user isolation.
-6. Answers may be difficult to trace back to their original source.
-
-DocuMind addresses these problems through a cloud-persistent, multimodal RAG architecture.
-
----
-
-# 🏗️ System Architecture
+# 🏗️ Architecture
 
 ```text
-                         ┌──────────────────────┐
-                         │        USER          │
-                         │ Login / Upload / Ask │
-                         └──────────┬───────────┘
+                         ┌─────────────────────┐
+                         │        USER         │
+                         │ Login / Upload / Ask│
+                         └──────────┬──────────┘
                                     │
                                     ▼
-                         ┌──────────────────────┐
-                         │      STREAMLIT       │
-                         │       app.py         │
-                         └───────┬───────┬──────┘
-                                 │       │
-                       Upload PDF│       │Question
-                                 │       │
-                ┌────────────────▼─┐     │
-                │    INGESTION     │     │
-                │                  │     │
-                │ PDF Parsing      │     │
-                │ Text/Table       │     │
-                │ Image Extraction │     │
-                │ Image Captioning │     │
-                └────────┬─────────┘     │
-                         │               │
-              ┌──────────┼──────────┐    │
-              │          │          │    │
-              ▼          ▼          ▼    │
-           Text/      Captions    Images │
-           Tables                  │      │
-              │          │        │      │
-              └─────┬────┘        │      │
-                    ▼             ▼      │
-              BGE Embeddings   Supabase  │
-                    │           Storage   │
-                    ▼                    │
-           ┌─────────────────┐           │
-           │ PostgreSQL +    │           │
-           │ pgvector        │           │
-           │                 │           │
-           │ chunks          │           │
-           │ embeddings      │           │
-           │ metadata        │           │
-           └────────┬────────┘           │
-                    │                    │
-                    │          ┌─────────▼─────────┐
-                    │          │  QUERY EMBEDDING  │
-                    │          │    BGE-small      │
-                    │          └─────────┬─────────┘
-                    │                    │
-                    │          ┌─────────▼─────────┐
-                    │          │  match_chunks RPC │
-                    │          │    pgvector       │
-                    │          └──────┬──────┬─────┘
-                    │                 │      │
-                    │          Text/Table   Images
-                    │                 │      │
-                    │                 │   Storage
-                    │                 │      │
-                    │          ┌──────▼──────▼─────┐
-                    │          │    RETRIEVED      │
-                    │          │ TEXT + RAW IMAGE  │
-                    │          └─────────┬─────────┘
-                    │                    │
-                    │          ┌─────────▼─────────┐
-                    │          │      GEMINI       │
-                    │          │ Multimodal LLM    │
-                    │          └─────────┬─────────┘
-                    │                    │
-                    └────────────────────▼
-                             GROUNDED ANSWER
-                              + SOURCES
+                         ┌─────────────────────┐
+                         │      STREAMLIT      │
+                         │       app.py        │
+                         └─────────┬───────────┘
+                                   │
+                 ┌─────────────────┴─────────────────┐
+                 │                                   │
+              Upload                              Question
+                 │                                   │
+                 ▼                                   ▼
+        ┌─────────────────┐                  ┌─────────────────┐
+        │  PDF INGESTION  │                  │ Query Embedding │
+        └────────┬────────┘                  │   BGE-small     │
+                 │                           └────────┬────────┘
+                 ▼                                    │
+        ┌─────────────────┐                           ▼
+        │   PDF PARSING   │                  ┌─────────────────┐
+        │                 │                  │   pgvector RPC  │
+        │ Text / Tables   │                  │  match_chunks() │
+        │ Images          │                  └───────┬─────────┘
+        └────────┬────────┘                          │
+                 │                         ┌────────┴────────┐
+                 │                         │                 │
+                 ▼                         ▼                 ▼
+        ┌─────────────────┐           Text/Table          Images
+        │ Image Captioning│             Top 5              Top 2
+        └────────┬────────┘               │                 │
+                 │                        │                 ▼
+                 │                        │          Supabase Storage
+                 ▼                        │                 │
+          BGE Embeddings                  │            Raw Images
+                 │                        │                 │
+                 └──────────┬─────────────┴─────────────────┘
+                            ▼
+                    ┌─────────────────┐
+                    │ Retrieved Context│
+                    │ Text + Tables +  │
+                    │ Actual Images    │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │      Gemini     │
+                    │ Multimodal LLM  │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │ Grounded Answer │
+                    │  + Sources      │
+                    └─────────────────┘
