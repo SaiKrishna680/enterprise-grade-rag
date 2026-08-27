@@ -2,9 +2,34 @@
 
 **Ask questions. Understand documents. Get grounded answers.**
 
+<p>
+<img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+<img src="https://img.shields.io/badge/Streamlit-UI-FF4B4B?style=flat-square&logo=streamlit&logoColor=white" alt="Streamlit">
+<img src="https://img.shields.io/badge/Postgres-pgvector-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL">
+<img src="https://img.shields.io/badge/Supabase-Auth%20%7C%20DB%20%7C%20Storage-3FCF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase">
+<img src="https://img.shields.io/badge/Gemini-API-8E75B2?style=flat-square&logo=googlegemini&logoColor=white" alt="Gemini">
+<img src="https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square" alt="License">
+</p>
+
 A production, multi-user **multimodal Retrieval-Augmented Generation (RAG)** platform — not a notebook demo. Upload any structured PDF (research papers, technical docs, financial reports, manuals) and ask questions that get answered from its actual text, tables, *and* charts, with every claim traceable back to a specific page.
 
 **[Live demo →](#)** &nbsp;·&nbsp; Built solo, end-to-end, including the parts that don't show up in a screenshot: authentication, per-user data isolation enforced at the database level, and a persistence architecture that survives a redeploy.
+
+## Table of contents
+
+- [Why this isn't another "RAG tutorial" project](#why-this-isnt-another-rag-tutorial-project)
+- [Screenshots](#screenshots)
+- [Architecture](#architecture)
+- [How it works](#how-it-works)
+- [Evaluation](#evaluation)
+- [Key engineering decisions](#key-engineering-decisions)
+- [Testing & verification philosophy](#testing--verification-philosophy)
+- [Tech stack](#tech-stack)
+- [Skills demonstrated](#skills-demonstrated)
+- [Getting started](#getting-started)
+- [Project structure](#project-structure)
+- [Roadmap](#roadmap)
+- [Known limitations](#known-limitations)
 
 ---
 
@@ -17,6 +42,23 @@ Most PDF-chatbot projects stop at "it answers questions from a document." This o
 - **Multi-tenant isolation is enforced by Postgres, not application code.** Row-Level Security policies mean a user genuinely cannot read — or even forge a write into — another user's data. Verified by connecting as a non-superuser database role and confirming both the read-block and the write-block directly, not just trusting the policy syntax.
 - **Two real architecture decisions got reversed after hitting real problems, not guessed correctly upfront:** BLIP → Gemini for image captioning, after BLIP's captions on financial charts turned out to be near-content-free ("a table with numbers," repeated across dozens of distinct charts). ChromaDB → Postgres/pgvector, after realizing local vector files don't survive a redeploy and that two separate systems (Chroma + Postgres) could let a deleted document's chunks silently orphan. Both are detailed below, not just mentioned.
 - **The evaluation framework is custom, on purpose.** Ragas was the first choice — until testing turned up a real bug in its Google-provider async handling (confirmed against the actual installed package, not just its docs). The custom LLM-as-judge evaluator that replaced it is smaller, transparent, and actually works.
+
+---
+
+## Screenshots
+
+<!--
+Replace these with real captures once you have the deployed URL handy:
+  1. The welcome / suggested-questions state (empty chat)
+  2. A chart-grounded answer with the "Sources" expander open, showing the retrieved image
+  3. The sidebar document list mid-processing (uploading → processing → completed)
+A screenshot of #2 specifically is the single highest-impact image for this
+project, since it's visual proof of the multimodal retrieval actually working.
+-->
+
+| Welcome state | Grounded answer with cited image |
+|---|---|
+| _add screenshot_ | _add screenshot_ |
 
 ---
 
@@ -124,17 +166,35 @@ Ragas was the first choice, matching what most RAG tutorials use. Wiring it to G
 
 ---
 
+## Testing & verification philosophy
+
+Every non-trivial claim in this repo was checked against something real before being trusted, not assumed from documentation:
+
+- **Service wrappers** (`auth_service`, `db_service`, `storage_service`) are unit-tested against mocked clients, asserting the *exact* call each function makes — not just that it "doesn't crash."
+- **Security guarantees are tested as an attacker would test them**, not just read as policy syntax: connected as a genuine non-superuser Postgres role and confirmed a second user's read returns zero rows *and* their write attempting to forge another user's `user_id` is rejected.
+- **Data-integrity guarantees are tested by triggering them**, not inferred: inserted a document and its chunk, deleted the document, and confirmed the chunk was actually gone — proving the cascade, not assuming the foreign key syntax is correct.
+- **Multimodal grounding is tested end-to-end**, asserting a real decoded image object (not a placeholder or path string) reaches the generation call.
+- Every UI change is checked with a bare Python run (catches real exceptions past Streamlit's own harmless warnings) plus a live `streamlit run` boot with log inspection before being called done.
+
+---
+
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| UI | Streamlit |
-| LLM (generation + captioning + judge) | Gemini API (`google-genai`) |
-| Embeddings | `sentence-transformers` (`BAAI/bge-small-en-v1.5`) |
-| Vector store | PostgreSQL + `pgvector` (via Supabase) |
-| Auth | Supabase Auth |
-| File storage | Supabase Storage |
-| PDF parsing | PyMuPDF, pdfplumber |
+| Layer | Choice | Why |
+|---|---|---|
+| UI | Streamlit | Fastest path to a real multi-user app without hand-building a frontend; native session state and theming were enough to avoid needing a separate frontend framework. |
+| LLM (generation + captioning + judge) | Gemini API (`google-genai`) | Genuinely free tier, natively multimodal (reads real images, not just OCR'd text), one SDK for three different jobs in the pipeline. |
+| Embeddings | `sentence-transformers` (`BAAI/bge-small-en-v1.5`) | Strong small-model retrieval quality, runs on CPU — no GPU dependency for a project that needs to stay deployable for free. |
+| Vector store | PostgreSQL + `pgvector` (via Supabase) | One persistent system instead of two that can drift apart; native `ON DELETE CASCADE` and Row-Level Security apply to vectors exactly like every other table. |
+| Auth | Supabase Auth | Managed session handling and password hashing — no hand-rolled auth code to get subtly wrong. |
+| File storage | Supabase Storage | Same project as the database and auth; one place to manage credentials and one place data actually persists. |
+| PDF parsing | PyMuPDF, pdfplumber | Complementary strengths — PyMuPDF for text/image extraction and page rasterization, pdfplumber specifically for table structure. |
+
+---
+
+## Skills demonstrated
+
+`Multimodal RAG` `Vector Search & Embeddings` `Prompt Engineering` `LLM-as-Judge Evaluation` `PostgreSQL & pgvector` `Row-Level Security` `Authentication & Session Management` `Database Schema Design (FKs, cascades, migrations)` `Cloud Deployment` `API Integration (Gemini, Supabase)` `Python (OOP, testing, mocking)` `Technical Debugging of Third-Party Libraries`
 
 ---
 
@@ -178,6 +238,14 @@ Optional CLI tools (bulk indexing, evaluation, a REPL for quick testing without 
 ```
 
 ---
+
+## Roadmap
+
+- [ ] Persist chat history (`conversations`/`messages` tables already exist and are RLS-protected — the app just doesn't write to them yet)
+- [ ] Delete-document UI, with matching Storage cleanup
+- [ ] Cross-document search ("compare these two reports") as an explicit multi-document mode
+- [ ] Dark mode visual QA pass
+- [ ] Larger, more diverse evaluation set (50+ questions across more document types)
 
 ## Known limitations
 
