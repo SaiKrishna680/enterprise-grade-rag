@@ -57,9 +57,8 @@ project, since it's visual proof of the multimodal retrieval actually working.
 -->
 
 | Welcome state | Grounded answer with cited image |
-|<img width="1917" height="909" alt="Screenshot 2026-08-27 105554" src="https://github.com/user-attachments/assets/9f93d205-b237-4479-b71e-179938b70c7e" />|<img width="1917" height="897" alt="Screenshot 2026-08-27 105623" src="https://github.com/user-attachments/assets/6680adf7-ecfa-4be4-b545-595cd31d96df" />|
-
-
+|---|---|
+|<img width="1917" height="909" alt="Screenshot 2026-08-27 105554" src="https://github.com/user-attachments/assets/27ed01ce-0d12-4757-b97a-4ba4080f7d1d" />|<img width="1917" height="909" alt="Screenshot 2026-08-27 105554" src="https://github.com/user-attachments/assets/2e21957f-a374-49f2-9c81-0da923dc6ed4" />|
 
 ---
 
